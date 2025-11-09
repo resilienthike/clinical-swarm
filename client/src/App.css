@@ -1,0 +1,137 @@
+/* Full-page dark blue background */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0a1a3d; /* deep medical blue */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: white;
+}
+
+/* Center everything vertically + horizontally */
+.page {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* ✅ horizontal centering */
+  justify-content: center; /* ✅ vertical centering */
+  text-align: center;
+}
+
+/* Title */
+.main-title {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 32px 0;
+  color: #ffffff;
+}
+
+/* Wrapper that holds textarea + button */
+.center-box {
+  width: 100%;
+  max-width: 600px; /* ✅ ensures content stays centered */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* ✅ center children */
+}
+
+/* Textbox */
+.input-box {
+  width: 100%;
+  max-width: 600px; /* ✅ prevents full screen stretching */
+  margin: 0 auto; /* ✅ center the box */
+  padding: 16px;
+  border-radius: 14px;
+  font-size: 16px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  background: #10224f; /* lighter navy */
+  color: white;
+  border: 1px solid #1e3a8a;
+  margin-bottom: 20px;
+}
+
+/* Placeholder color */
+.input-box::placeholder {
+  color: #b6c4e7;
+}
+
+/* Submit button */
+.submit-btn {
+  width: 100%;
+  max-width: 600px; /* ✅ match textbox width */
+  margin: 0 auto;
+  padding: 14px;
+  background: #2563eb;
+  border: none;
+  color: white;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.submit-btn:hover {
+  background: #1d4ed8;
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Result box */
+.result-box {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 600px;
+  background: #132b59;
+  padding: 20px;
+  border-radius: 14px;
+  color: #dbeafe;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  border-left: 4px solid #3b82f6;
+}
+
+/* ---------------------------------------- */
+/* LOADING SCREEN */
+/* ---------------------------------------- */
+
+.loading-page {
+  height: 100vh;
+  width: 100vw;
+  background: #0a1a3d;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.loading-title {
+  font-size: 28px;
+  color: white;
+  margin-bottom: 30px;
+}
+
+/* Spinner animation */
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
