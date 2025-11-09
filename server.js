@@ -1,6 +1,7 @@
 // server.js
 // This is your entire backend for the hackathon.
 
+import fetch from 'node-fetch'; // Make sure you ran "npm install node-fetch"
 import express from 'express';
 import { MongoClient } from 'mongodb';
 import 'dotenv/config'; // Loads .env file
@@ -14,24 +15,46 @@ import { RecommendationSLMAgent } from './agents/RecommendationSLMAgent.js';
 const app = express();
 app.use(express.json());
 
-// --- MOCK LLM CLIENT ---
-// This is a "smart" mock that responds differently based on the agent's prompt
-// TODO: Replace this with your REAL LLM client if you have time.
+// --- HYBRID LLM CLIENT (REAL + MOCK) ---
+
+// Your teammate's server URL
+const TEAMMATE_API_URL = "http://localhost:8000/predict";
+
 const llmClient = {
   generateContent: async (prompt) => {
-    console.log(`[MockLLM] Received a prompt...`);
     
-    // Mock for EventExtractorAgent
+    // --- AGENT 1: REAL API CALL (EventExtractor) ---
     if (prompt.includes("Extract all structured data")) {
-      return { response: { text: () => `{
-        "patient_id": "1109",
-        "symptoms": ["headache", "confusion", "loss of balance"],
-        "is_serious": true
-      }`}};
+      console.log(`[LLMClient] Sending REAL request to: ${TEAMMATE_API_URL}`);
+      try {
+        const response = await fetch(TEAMMATE_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: prompt }) // Send the prompt
+        });
+
+        if (!response.ok) {
+          throw new Error(`Model server responded with status: ${response.status}`);
+        }
+        
+        const resultJson = await response.json();
+        
+        // Return the model's JSON output as a string, just like the mock did
+        return {
+          response: {
+            text: () => JSON.stringify(resultJson)
+          }
+        };
+
+      } catch (error) {
+        console.error(`[LLMClient] Error calling REAL model at ${TEAMMATE_API_URL}:`, error.message);
+        throw error;
+      }
     }
     
-    // Mock for RiskAnalyzerAgent
+    // --- AGENT 2: MOCK LOGIC (Your Agent) ---
     if (prompt.includes("You are a clinical risk analysis specialist")) {
+      console.log(`[LLMClient] Using MOCK logic for RiskAnalyzerAgent...`);
       return { response: { text: () => `{
         "risk_score": 0.9,
         "correlation_reason": "MOCK: 'confusion' and 'loss of balance' are highly correlated with known Serious Event 'Cerebral infarction'.",
@@ -39,8 +62,9 @@ const llmClient = {
       }`}};
     }
     
-    // Mock for RecommendationSLMAgent
+    // --- AGENT 3: MOCK LOGIC (Your Agent) ---
     if (prompt.includes("You are a clinical protocol meta-reasoner")) {
+      console.log(`[LLMClient] Using MOCK logic for RecommendationSLMAgent...`);
       return { response: { text: () => `{
         "recommended_action": "ESCALATE: Immediate protocol review.",
         "reasoning": "MOCK: Risk score 0.9 and symptoms 'confusion' match 'unstable major depressive disorder' exclusion criteria.",
@@ -49,7 +73,7 @@ const llmClient = {
     }
 
     // Fallback
-    return { response: { text: () => `{"error": "Mock response not configured for this prompt."}` }};
+    throw new Error("llmClient: No API URL or MOCK logic configured for this prompt.");
   }
 };
 
@@ -75,7 +99,6 @@ async function connectDB() {
 // This function will be called AFTER the DB is connected
 function initializeAgents(db) {
   
-  // *** THIS IS THE UPDATED LIST ***
   const clinicalTrialFiles = [
     './data/NCT03131687.json',
     './data/NCT04166773.json',
@@ -91,9 +114,9 @@ function initializeAgents(db) {
   // Create the agents and pass them the DB and LLM clients
   const eventExtractor = new EventExtractorAgent(llmClient, db);
   const riskAnalyzer = new RiskAnalyzerAgent(llmClient, db, clinicalTrialFiles);
-  const recommendationSLM = new RecommendationSLMAgent(llmClient, db);
+  const recommendationSLMAgent = new RecommendationSLMAgent(llmClient, db);
   
-  return { eventExtractor, riskAnalyzer, recommendationSLM };
+  return { eventExtractor, riskAnalyzer, recommendationSLMAgent };
 }
 
 
@@ -101,7 +124,7 @@ function initializeAgents(db) {
 // This is the endpoint your React app will call
 async function startServer() {
   const db = await connectDB();
-  const { eventExtractor, riskAnalyzer, recommendationSLM } = initializeAgents(db);
+  const { eventExtractor, riskAnalyzer, recommendationSLMAgent } = initializeAgents(db);
 
   app.post('/api/submit-event', async (req, res) => {
     try {
@@ -132,7 +155,7 @@ async function startServer() {
       console.log(`New event created: ${eventId}`);
 
       // 2. Run the agent swarm in sequence (NOT awaiting)
-      runSwarm(eventId, eventExtractor, riskAnalyzer, recommendationSLM, db);
+      runSwarm(eventId, eventExtractor, riskAnalyzer, recommendationSLMAgent, db);
 
       // 3. Respond to the frontend immediately
       res.status(202).json({
@@ -147,7 +170,7 @@ async function startServer() {
   });
 
   // This function runs the agents in the background
-  async function runSwarm(eventId, eventExtractor, riskAnalyzer, recommendationSLM, db) {
+  async function runSwarm(eventId, eventExtractor, riskAnalyzer, recommendationSLMAgent, db) {
     try {
       // 1. EventExtractor runs
       await eventExtractor.run(eventId);
@@ -155,7 +178,7 @@ async function startServer() {
       // 2. RiskAnalyzer runs
       await riskAnalyzer.run(eventId);
       
-      // 3. RecommendationSLM runs
+      // 3. RecommendationSLMAgent runs
       await recommendationSLM.run(eventId);
 
       // 4. Mark as complete
